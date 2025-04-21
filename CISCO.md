@@ -33,6 +33,9 @@ Switch# show ip dhcp binding
 Switch# show ip dhcp server statistics
 Switch# show ipv6 dhcp pool
 Switch# show standby brief
+Router# show ip protocols | include Router ID # OSPF
+Router# show ip ospf neighbor # verify the OSPFv2 adjacencies
+Router# show ip ospf interface <interface> # verify the OSPFv2 configuration on the interface
 ```
 
 ## SVI Configuration
@@ -344,4 +347,100 @@ Standby router
 R2(config)# interface g0/0/1
 R2(config-if)# standby version 2
 R2(config-if)# standby 1 ip 172.16.10.1
+```
+
+## OSPF
+
+### OSP Databases
+
+```bash
+Router# show ip ospf neighbor # Check OSPF neighbors (adjacency)
+Router# show ip ospf database # Check OSPF Link State Database (LSDB)
+Router# show ip route ospf # Check routing table
+```
+
+### OSPF Router ID Configuration
+
+```bash
+Router(config)# router ospf <process id> # OSPF process id should be the same in all routers in the same area, between 1 and 65535
+Router(config-router)# router-id <router id> # Optional, but recommended to be set manually
+```
+
+### Modify OSPF Router ID
+
+```bash
+Router(config)# router ospf <process id>
+Router(config-router)# router-id <NEW router id> # Optional, but recommended to be set manually
+Router(config-router)# end
+Router# clear ip ospf process # Restart OSPF process to apply changes
+```
+
+### Point-to-Point OSPF Configuration
+
+> Can also be done using the interface command. `ip ospf <process id> area <area id>`
+
+> This will enable OSPF on all interfaces matching the provided network.
+> Wildcard mask is calculated as `255.255.255.255 - subnet mask`.
+
+```bash
+Router(config-router)# network <network> <wildcard mask> area <area id>
+# OR for a specific interface
+# Router(config-router)# network <ip address> 0.0.0.0 area <area id>
+
+```
+
+#### OSPF Passive Interface
+
+```bash
+Router(config-router)# passive-interface <interface> # Prevents OSPF from sending hello packets on the interface, This is ussually used for interfaces that are not connected to other OSPF routers, such as loopback interfaces or interfaces connected to end hosts.
+```
+
+#### Disable DR/BDR Election
+
+```bash
+Router(config-if)# ip ospf network point-to-point # Disables DR/BDR election on the interface
+```
+
+### Multiaccess OSPF Configuration
+
+```bash
+
+```
+
+### Set OSPF interface priority
+
+```bash
+Router(config-if)# ip ospf priority <priority> # Default is 1, range is 0-255
+Router# clear ip ospf process # Restart OSPF process to apply changes
+```
+
+### Cisco OSPF Cost metric
+
+> Make sure to set the cost on all routers in the same area to avoid routing loops.
+
+```bash
+Router(config-if)# ip ospf cost <cost> # Default is 10000/bandwidth in kbps, range is 1-65535
+Router# clear ip ospf process # Restart OSPF process to apply changes
+```
+
+OR
+
+```bash
+Router(config-if)# autocost reference-bandwidth <bandwidth> # Default is 100 Mbps, range is 1-4294967 Mbps, for 10 Gigabit Ethernet set to 10000 Mbps, and for 1 Gigabit Ethernet set to 1000 Mbps
+```
+
+### OSPF interval timers
+
+```bash
+Router(config-if)# ip ospf hello-interval <seconds> # Default is 10 seconds, range is 1-65535 seconds
+Router(config-if)# ip ospf dead-interval <seconds> # Default is 40 seconds, range is 1-65535 seconds
+```
+
+### Propagate default route
+
+```bash
+# Set a default route on the router with interface to the internet
+Router(config)# ip route <destination network> <subnet mask> <next-hop ip address> | <exit interface>
+Router(config)# router ospf <process id> # OSPF process id should be the same in all routers in the same area, between 1 and 65535
+Router(config-router)# default-information originate # Propagates the default route to OSPF neighbors
 ```
