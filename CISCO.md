@@ -36,6 +36,7 @@ Switch# show standby brief
 Router# show ip protocols | include Router ID # OSPF
 Router# show ip ospf neighbor # verify the OSPFv2 adjacencies
 Router# show ip ospf interface <interface> # verify the OSPFv2 configuration on the interface
+Router# show access-lists # show all ACLs
 ```
 
 ## SVI Configuration
@@ -401,12 +402,6 @@ Router(config-router)# passive-interface <interface> # Prevents OSPF from sendin
 Router(config-if)# ip ospf network point-to-point # Disables DR/BDR election on the interface
 ```
 
-### Multiaccess OSPF Configuration
-
-```bash
-
-```
-
 ### Set OSPF interface priority
 
 ```bash
@@ -443,4 +438,94 @@ Router(config-if)# ip ospf dead-interval <seconds> # Default is 40 seconds, rang
 Router(config)# ip route <destination network> <subnet mask> <next-hop ip address> | <exit interface>
 Router(config)# router ospf <process id> # OSPF process id should be the same in all routers in the same area, between 1 and 65535
 Router(config-router)# default-information originate # Propagates the default route to OSPF neighbors
+```
+
+## ACL Configuration
+
+> Keep in mind the **any** and **all** keywords. The any keyword is used to match any IP address, while the all keyword is used to match all IP addresses in the ACL.
+
+### Standard IPv4 ACL
+
+#### Numbered ACL
+
+```bash
+Router(config)# access-list <number> <permit/deny/remark(documentation text)> <source ip address> <wildcard mask> # Numbered ACL range is 1-99 and 1300-1999
+# Router(config)# access-list <number> remark <documentation text> # Documentation text
+```
+
+#### Named ACL
+
+```bash
+Router(config)# ip access-list standard <name> # Named ACL range is 100-199 and 2000-2699
+# Router(config-std-nacl)# permit <source ip address> <wildcard mask>
+# Router(config-std-nacl)# deny <source ip address> <wildcard mask># Implicit deny all at the end of the ACL
+# Router(config-std-nacl)# remark <documentation text> # Documentation text
+```
+
+---
+
+### Extended ACL
+
+#### Numbered ACL
+
+```bash
+Router(config)# access-list <number> <permit/deny/remark(documentation text)> <protocol> <source ip address> <wildcard mask> <destination ip address> <wildcard mask> [eq | gt | lt | neq | range] <port number> # Numbered ACL range is 100-199 and 2000-2699
+```
+
+#### Named ACL
+
+```bash
+Router(config)# ip access-list extended <name> # Named ACL range is 100-199 and 2000-2699
+Router(config-ext-nacl)# permit <protocol> <source ip address> <wildcard mask> <destination ip address> <wildcard mask> [eq | gt | lt | neq | range] <port number>
+```
+
+#### TCP established
+
+> The established keyword enables inside traffic to exit the inside private network and permits the returning reply traffic to enter the inside private network.
+
+```bash
+Router(config)# ip access-list extended <name> # Named ACL range is 100-199 and 2000-2699
+Router(config-ext-nacl)# permit tcp <source ip address> <wildcard mask> <destination ip address> <wildcard mask> established # Allow established TCP connections
+```
+
+---
+
+### Linking ACL to Interface
+
+> The ACL must ALWAYS be applied to the interface; otherwise, it will not work.
+
+```bash
+Router(config)# interface <interface>
+Router(config-if)# ip access-group <number/name> {in | out} # Inbound or outbound traffic
+```
+
+### Modify ACL
+
+1. Copy the ACL
+2. Modify the ACL
+3. Delete the old ACL (no .....)
+   - `Router(config)# no access-list <number>` - For deletting a whole ACL
+   - `Router(config-std-nacl)# no <number>` - For deletting a ACE entry in a ACL
+4. Paste the new ACL
+5. Apply the new ACL to the interface
+
+### Clear ACL statistics
+
+```bash
+Router# clear access-list counters <number/name> # Clear the statistics of the ACL
+```
+
+### Secure VTY Lines
+
+```bash
+Router(config)# username <username> secret <password> # Create a local user account with a password
+Router(config)# ip access-list standard <name> # Create a standard ACL to allow access to the VTY lines
+Router(config-std-nacl)# remark <documentation text> # Documentation text
+Router(config-std-nacl)# permit <source ip address> <wildcard mask> # Allow access to the VTY lines from the specified source IP address
+Router(config-std-nacl)# deny any # Deny access to the VTY lines from all other source IP addresses
+Router(config-std-nacl)# exit # Exit the ACL configuration mode
+Router(config)# line vty 0 4 # Access the VTY lines configuration mode
+Router(config-line)# access-class <name> in # Apply the ACL to the VTY lines
+Router(config-line)# login local # Use the local user account for authentication
+Router(config-line)# transport input ssh # Allow only SSH access to the VTY lines
 ```
