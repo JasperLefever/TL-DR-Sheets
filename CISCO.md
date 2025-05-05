@@ -37,6 +37,7 @@ Router# show ip protocols | include Router ID # OSPF
 Router# show ip ospf neighbor # verify the OSPFv2 adjacencies
 Router# show ip ospf interface <interface> # verify the OSPFv2 configuration on the interface
 Router# show access-lists # show all ACLs
+Router# show spanning-tree summary 
 ```
 
 ## SVI Configuration
@@ -528,4 +529,211 @@ Router(config)# line vty 0 4 # Access the VTY lines configuration mode
 Router(config-line)# access-class <name> in # Apply the ACL to the VTY lines
 Router(config-line)# login local # Use the local user account for authentication
 Router(config-line)# transport input ssh # Allow only SSH access to the VTY lines
+```
+
+## NAT Configuration
+
+```bash
+show ip nat translations (verbose) # Show NAT translations
+show ip nat statistics # Show NAT statistics
+```
+
+### Static NAT
+
+```bash
+Router(config)# ip nat inside source static <inside local ip address> <inside global ip address> # Static NAT configuration
+
+Router(config)# interface <interface> # Inside interface
+Router(config-if)# ip address <ip address> <subnet mask> # inside interface IP address configuration
+Router(config-if)# ip nat inside # Inside NAT configuration
+
+Router(config-if)# exit # Exit the interface configuration mode
+Router(config)# interface <interface> # Outside interface
+Router(config-if)# ip address <ip address> <subnet mask> # Outside interface IP address configuration
+Router(config-if)# ip nat outside # Outside NAT configuration
+```
+
+### Dynamic NAT
+
+```bash
+Router(config)# ip nat pool <name> <start ip address> <end ip address> netmask <subnet mask> # Dynamic NAT pool configuration
+
+Router(config)# access-list <number> permit <source ip address> <wildcard mask> # Configure ACL to permit only those adresses that will be translated
+Router(config)# ip nat inside source list <number> pool <name> # Bind ACL to the NAT pool
+
+#Inside interfaces
+Router(config)# interface <interface> # Inside interface
+Router(config-if)# ip address <ip address> <subnet mask> # Inside interface IP address configuration
+Router(config-if)# ip nat inside # Inside NAT configuration
+
+Router(config)# interface <interface> # Outside interface
+Router(config-if)# ip address <ip address> <subnet mask> # Outside interface IP address configuration
+Router(config-if)# ip nat outside # Outside NAT configuration
+```
+
+```bash
+ip nat translation timeout <timeout-seconds>  # Set the timeout for NAT translations, default is 86400 seconds (24 hours)
+clear ip nat translation * # To clear dynamic entries before the timeout has expired
+```
+
+### NAT overload (PAT)
+
+#### For overloading single ip
+
+```bash
+Router(config)# access-list <number> permit <source ip address> <wildcard mask> # Configure ACL to permit only those adresses that will be translated
+Router(config)# ip nat inside source list <number> interface <outgoing interface> overload # Bind ACL to the NAT overload (PAT) configuration
+
+Router(config)# interface <interface> # Inside interface
+Router(config-if)# ip address <ip address> <subnet mask> # Inside interface IP address configuration
+Router(config-if)# ip nat inside # Inside NAT configuration
+
+Router(config)# interface <interface> # Outside interface
+Router(config-if)# ip address <ip address> <subnet mask> # Outside interface IP address configuration
+Router(config-if)# ip nat outside # Outside NAT configuration
+```
+
+#### Overloading a pool
+
+```bash
+Router(config)# ip nat pool <name> <start ip address> <end ip address> netmask <subnet mask> # Dynamic NAT pool configuration
+Router(config)# access-list <number> permit <source ip address> <wildcard mask> # Configure ACL to permit only those adresses that will be translated
+Router(config)# ip nat inside source list <number> pool <name> overload # Bind ACL to the NAT pool and enable overload (PAT) configuration
+
+interface <interface> # Inside interface
+Router(config-if)# ip address <ip address> <subnet mask> # Inside interface IP address configuration
+Router(config-if)# ip nat inside # Inside NAT configuration
+
+Router(config)# interface <interface> # Outside interface
+Router(config-if)# ip address <ip address> <subnet mask> # Outside interface IP address configuration
+Router(config-if)# ip nat outside # Outside NAT configuration
+```
+
+## Switch Security
+
+### Disabling unused ports
+
+```bash
+Switch(config)# interface range <interface1> - <interface2>
+Switch(config-if-range)# shutdown # Disable the unused ports
+```
+
+### Port Security
+
+> Limits the number of MAC addresses that can be learned on a port.
+> This sets to manual mode, Default is dynamic mode.
+
+```bash
+Switch(config)# interface <interface>
+Switch(config-if)# switchport mode access # Set the interface to access mode
+Switch(config-if)# switchport port-security # Enable port security on the interface
+```
+
+```bash
+Switch(config-if)# switchport port-security <option>
+# Set the port security option
+# <option> can be one of the following:
+# - maximum <number> # Set the maximum number of MAC addresses that can be learned on the port
+# - violation <option> # Set the action to take when a violation occurs; options are protect(drops packets no syslog), restrict (drops packets sends syslog ), or shutdown(default )
+# - mac-address <mac address> # Set a specific MAC address to be allowed on the port
+# - aging <option> # Set the aging time for the MAC address table
+```
+
+```bash
+Switch# show port-security <interface > # Show port security configuration on the interface
+Switch# show port-security address # Show the MAC address table for port security
+```
+
+### VLAN attacks mitigation
+
+> For access ports, disable DTP
+
+```bash
+Switch(config)# interface <interface>
+Switch(config-if)# switchport mode access # Set the interface to access mode on non-trunking ports
+```
+
+> For unused ports
+
+```bash
+Switch(config)# interface <interface>
+Switch(config-if)# switchport mode access # Set the interface to access mode on non used ports
+Switch(config-if)# switchport  access vlan <vlan number> # Set the access PARKING VLAN for the interface
+Switch(config-if)# shutdown # Disable the unused ports
+```
+
+> For trunk ports
+
+```bash
+Switch(config)# interface <interface>
+Switch(config-if)# switchport mode trunk
+Switch(config-if)# switchport trunk native vlan <vlan number> # Set the native VLAN for the trunk port to the not default VLAN
+Switch(config-if)# switchport nongotiate # Disable DTP (Dynamic Trunking Protocol) on the trunk port
+```
+
+### DHCP Snooping
+
+```bash
+Switch(config)# ip dhcp snooping # Enable DHCP snooping globally
+Switch(config-if)# ip dhcp snooping trust # Enable DHCP snooping on the trusted port (all the network device ports)
+Switch(config-if)# exit # Exit the interface configuration mode
+Switch(config)# ip dhcp snoopnig limit rate <rate-per-sec> # Set the rate limit for DHCP packets on the untrusted ports (all the user ports)
+Switch(config)# ip dhcp snooping vlan <vlan number> # Enable DHCP snooping on the specified VLAN
+```
+
+```bash
+Switch# show ip dhcp snooping # Show DHCP snooping configuration
+Switch# show ip dhcp snooping binding # Show the DHCP snooping binding table
+```
+
+### Dynamic ARP Inspection (DAI)
+
+> DHCP Snooping must be enabled before DAI.
+
+```bash
+# on trusted ports
+Switch(config-if)# ip arp inspection trust # Enable DAI on the trusted port (all the network device ports)
+```
+
+> arp inspection on src mac, dest mac, and ip address
+
+```bash
+Switch(config)# ip arp inspection validate src-mac # Enable DAI on the source MAC address
+Switch(config)# ip arp inspection validate dest-mac # Enable DAI on the destination MAC address
+Switch(config)# ip arp inspection validate ip # Enable DAI on the IP address
+Switch(config)# ip arp inspection validate src-mac dest-mac ip # Enable DAI on the source MAC address, destination MAC address, and IP address
+```
+
+### STP
+
+> Only enable on end user ports.
+
+#### Portfast
+
+```bash
+Switch(config)# interface <interface>
+Switch(config-if)# spanning-tree portfast # Enable PortFast on the interface
+Switch(config-if)# exit # Exit the interface configuration mode
+
+# OR
+
+Switch(config)# spanning-tree portfast default # Enable PortFast on all access ports
+```
+
+#### BPDU Guard
+
+> When port received unexpected BPDUs, the port is disabled and put into err-disabled state.
+
+> Interface
+
+```bash
+Switch(config)# interface <interface>
+Switch(config-if)# spanning-tree bpduguard enable # Enable BPDU guard on the interface
+```
+
+> Global
+> Enable shutdown port -> errdisable recovery cause psecure_violation
+
+```bash
+Switch(config)# spanning-tree portfast bpduguard default # Enable BPDU guard on all access ports
 ```
